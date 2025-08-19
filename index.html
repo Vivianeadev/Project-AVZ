@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Carteira — Estilo MetaMask (Local-First)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.1/dist/ethers.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      :root{color-scheme: light;}
+      .mm-gradient{background: linear-gradient(135deg,#f6f3ee 0%,#ffffff 50%,#fef6ee 100%);} 
+      .mm-accent{background:#f6851b;}
+      .card{box-shadow:0 8px 30px rgba(0,0,0,.04)}
+    </style>
+  </head>
+  <body class="min-h-screen mm-gradient text-slate-800">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useEffect, useState } = React;
+      const { ethers } = window;
+
+      const ERC20_ABI = [
+        "function balanceOf(address) view returns (uint256)",
+        "function decimals() view returns (uint8)",
+        "function symbol() view returns (string)",
+        "function name() view returns (string)",
+      ];
+
+      const TOKEN_LIST = {
+        1: [ { address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", label: "USDT" } ],
+        137: [
+          { address: "0x3813e82e6f7098b9583FC0F33a962D02018B6803", label: "USDT" },
+          { address: "0xf66F299d087DE5c96a523Cacd5063D082aC1930a", label: "AVZ" },
+        ],
+      };
+
+      const CHAIN_META = {
+        1: { name: "Ethereum", native: "ETH", explorer: "https://etherscan.io", rpc: "https://rpc.ankr.com/eth" },
+        137: { name: "Polygon", native: "MATIC", explorer: "https://polygonscan.com", rpc: "https://polygon-rpc.com" },
+      };
+
+      const shortAddr = (a) => a ? `${a.slice(0,6)}…${a.slice(-4)}` : "";
+      const hexChain = (id) => "0x" + Number(id).toString(16);
+
+      function App() {
+        const [provider,setProvider] = useState(null);
+        const [account,setAccount] = useState(null);
+        const [chainId,setChainId] = useState(null);
+        const [ensName,setEnsName] = useState(null);
+        const [nativeBal,setNativeBal] = useState(null);
+        const [tokens,setTokens] = useState([]);
+        const [loading,setLoading] = useState(false);
+        const [error,setError] = useState("");
+        const [customToken,setCustomToken] = useState("");
+
+        const chainInfo = CHAIN_META[chainId] || { name:`Chain ${chainId||"-"}`, native:"COIN", explorer:"" };
+
+        useEffect(()=>{ window.lucide?.createIcons(); });
+
+        useEffect(()=>{
+          if(window.ethereum){
+            const p = new ethers.BrowserProvider(window.ethereum);
+            setProvider(p);
+            window.ethereum.on('accountsChanged', (accs)=> setAccount(accs?.[0]||null));
+            window.ethereum.on('chainChanged', ()=> window.location.reload());
+          } else { setError("MetaMask não encontrada."); }
+        },[]);
+
+        async function connect(){
+          try{
+            setError("");
+            if(!window.ethereum){ setError("MetaMask não encontrada."); return; }
+            const p = provider || new ethers.BrowserProvider(window.ethereum);
+            const accs = await p.send("eth_requestAccounts", []);
+            if(!accs || !accs[0]) { setError("Nenhuma conta autorizada."); return; }
+            const addr = accs[0];
+            const net = await p.getNetwork();
+            setProvider(p); setAccount(addr); setChainId(Number(net.chainId));
+            try{ setEnsName(await p.lookupAddress(addr)); } catch{}
+            await fetchNative(p, addr);
+            await fetchTokens(p, addr, Number(net.chainId));
+          } catch(e) { setError(e.message || "Falha ao conectar MetaMask"); }
+        }
+
+        async function fetchNative(p, addr){
+          setLoading(true);
+          try{ const bal = await p.getBalance(addr); setNativeBal(ethers.formatEther(bal)); }
+          finally{ setLoading(false); }
+        }
+
+        async function fetchTokens(p, addr, cid){
+          setLoading(true);
+          try{
+            const list = TOKEN_LIST[cid] || [];
+            const out = [];
+            for(const t of list){
+              try{
+                const c = new ethers.Contract(t.address, ERC20_ABI, p);
+                const [raw,decimals,symbol,name] = await Promise.all([
+                  c.balanceOf(addr), c.decimals(), c.symbol().catch(()=>t.label||'TOKEN'), c.name().catch(()=>t.label||'Token')
+                ]);
+                out.push({ address:t.address, symbol, name, decimals, balance: ethers.formatUnits(raw, decimals||18) });
+              } catch{}
+            }
+            out.sort((a,b)=> Number(b.balance)-Number(a.balance));
+            setTokens(out);
+          } finally{ setLoading(false); }
+        }
+
+        async function refresh(){
+          if(!provider||!account) return;
+          const net = await provider.getNetwork();
+          setChainId(Number(net.chainId));
+          await fetchNative(provider, account);
+          await fetchTokens(provider, account, Number(net.chainId));
+        }
+
+        async function switchTo(target){
+          if(!window.ethereum) return;
+          try{
+            await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId: hexChain(target)}] });
+          }catch(e){
+            if(e?.code===4902 && CHAIN_META[target]){
+              const m = CHAIN_META[target];
+              await window.ethereum.request({
+                method:'wallet_addEthereumChain',
+                params:[{ chainId:hexChain(target), chainName:m.name, nativeCurrency:{name:m.native,symbol:m.native,decimals:18}, rpcUrls:[m.rpc], blockExplorerUrls:[m.explorer] }]
+              });
+            }
+          }
+        }
+
+        async function addCustomToken(){
+          const addr = customToken.trim(); if(!addr||!provider||!account) return;
+          try{
+            setLoading(true);
+            const c = new ethers.Contract(addr, ERC20_ABI, provider);
+            const [raw,decimals,symbol,name] = await Promise.all([
+              c.balanceOf(account), c.decimals(), c.symbol(), c.name()
+            ]);
+            const human = ethers.formatUnits(raw, decimals||18);
+            setTokens(prev=>{
+              if(prev.some(t=>t.address.toLowerCase()===addr.toLowerCase())) return prev;
+              const next = [...prev,{address:addr,symbol,name,decimals,balance:human}];
+              next.sort((a,b)=> Number(b.balance)-Number(a.balance));
+              return next;
+            });
+            setCustomToken("");
+          } catch{ setError('Falha ao adicionar token. Verifique o contrato.'); }
+          finally{ setLoading(false); }
+        }
+
+        function disconnect(){
+          setAccount(null); setEnsName(null); setChainId(null);
+          setNativeBal(null); setTokens([]); setError("");
+        }
+
+        return (
+          <div className="p-6 max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold">Carteira — estilo MetaMask</h1>
+              <div>
+                {account ? (
+                  <>
+                    <button onClick={refresh} className="px-3 py-2 rounded-2xl bg-white border card hover:bg-slate-50">Atualizar</button>
+                    <button onClick={disconnect} className="px-3 py-2 rounded-2xl bg-white border card hover:bg-slate-50">Desconectar</button>
+                  </>
+                ) : (
+                  <button onClick={connect} className="px-4 py-2 rounded-2xl mm-accent text-white card hover:opacity-90">Conectar MetaMask</button>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-2xl text-sm card">
+              <p className="font-medium">Privacidade garantida • Execução local</p>
+              <ul className="list-disc ml-5 mt-1">
+                <li>Não solicita senha, seed phrase ou chave privada.</li>
+                <li>Usa <code>window.ethereum</code> com autorização do usuário.</li>
+                <li>Nenhum dado sai do navegador (client-side only).</li>
+              </ul>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 mb-6">
+              <div className="p-5 rounded-2xl bg-white border card">
+                <div className="text-sm text-slate-500 mb-1">Conta</div>
+                {account ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{ensName || shortAddr(account)}</div>
+                      <div className="text-xs text-slate-500">{account}</div>
+                    </div>
+                  </div>
+                ) : <div className="text-slate-500">Não conectado</div>}
+              </div>
+
+              <div className="p-5 rounded-2xl bg-white border card">
+                <div className="text-sm text-slate-500 mb-1">Rede</div>
+                {chainId ? (
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">{chainInfo.name}</div>
+                    <div className="flex gap-2">
+                      <button onClick={()=>switchTo(1)} className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs">Ethereum</button>
+                      <button onClick={()=>switchTo(137)} className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs">Polygon</button>
+                    </div>
+                  </div>
+                ) : <div className="text-slate-500">—</div>}
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white border card mb-6">
+              <div className="text-sm text-slate-500 mb-1">Saldo Nativo</div>
+              {account ? (
+                <div className="text-2xl font-bold">{nativeBal ?? (loading ? 'Carregando…':'0.0')} {chainInfo.native}</div>
+              ) : <div className="text-slate-500">Conecte sua carteira para ver o saldo.</div>}
+            </div>
+
+            <div className="p-5 rounded-2xl bg-white border card mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm text-slate-500">Tokens ({tokens.length})</div>
+              </div>
+              {account ? (
+                tokens.length ? (
+                  <div className="overflow-hidden rounded-xl border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-left p-3">Token</th>
+                          <th className="text-right p-3">Saldo</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tokens.map(t=>(
+                          <tr key={t.address} className="border-t">
+                            <td className="p-3">{t.symbol}</td>
+                            <td className="p-3 text-right font-mono">{t.balance}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : <div className="text-slate-500">Nenhum token na lista. Adicione um contrato abaixo.</div>
+              ) : <div className="text-slate-500">Conecte a carteira para listar tokens.</div>}
+
+              <div className="mt-4 flex gap-2">
+                <input value={customToken} onChange={(e)=>setCustomToken(e.target.value)} placeholder="Contrato ERC-20" className="flex-1 px-3 py-2 rounded-xl border"/>
+                <button onClick={addCustomToken} className="px-3 py-2 rounded-xl bg-slate-900 text-white">Adicionar</button>
+              </div>
+            </div>
+
+            {error && <div className="p-4 rounded-2xl border bg-red-50 text-red-700 mb-6 text-sm">{error}</div>}
+            <div className="text-xs text-slate-500 text-center">Espelho visual estilo MetaMask rodando 100% no cliente.</div>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>
