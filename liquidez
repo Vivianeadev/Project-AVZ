@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AVZ PropTech - Acesso à Web3</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 0;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 2px solid;
+      border-image: linear-gradient(45deg, #DAA520, #FFD700, #B8860B, #DAA520) 1;
+      border-radius: 20px;
+      padding: 40px 30px;
+      text-align: center;
+      max-width: 600px;
+      width: 90%;
+      margin-bottom: 30px;
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(218, 165, 32, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      animation: containerGlow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes containerGlow {
+      0% { box-shadow: 0 25px 50px rgba(0,0,0,0.3),0 0 0 1px rgba(218,165,32,0.2),inset 0 1px 0 rgba(255,255,255,0.1),0 0 30px rgba(218,165,32,0.1);}
+      100% { box-shadow: 0 25px 50px rgba(0,0,0,0.3),0 0 0 1px rgba(218,165,32,0.4),inset 0 1px 0 rgba(255,255,255,0.1),0 0 50px rgba(218,165,32,0.2);}
+    }
+
+    h1 {
+      background: linear-gradient(45deg, #DAA520, #FFD700, #FFA500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-shadow: 0 0 30px rgba(218,165,32,0.5);
+      animation: titleShine 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes titleShine { 0% {filter: brightness(1);} 100% {filter: brightness(1.2);} }
+
+    p {
+      color: #e0e0e0;
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .product-btn, .metamask-btn, .recebiveis-btn {
+      background: linear-gradient(45deg, #DAA520, #FFD700, #B8860B);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      color: #1a1a1a;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 10px 25px rgba(218,165,32,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+      width: 200px;
+      max-width: 100%;
+      margin: 8px;
+    }
+
+    .recebiveis-btn {
+      background: linear-gradient(45deg, #228B22, #32CD32, #006400);
+      box-shadow: 0 10px 25px rgba(34,139,34,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .product-btn::before, .metamask-btn::before, .recebiveis-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .product-btn:hover::before, .metamask-btn:hover::before, .recebiveis-btn:hover::before { left: 100%; }
+    .product-btn:hover, .metamask-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 35px rgba(218,165,32,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      background: linear-gradient(45deg, #FFD700, #FFA500, #DAA520);
+    }
+
+    .recebiveis-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 35px rgba(34,139,34,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      background: linear-gradient(45deg, #32CD32, #00FF00, #228B22);
+    }
+
+    .product-btn:active, .metamask-btn:active, .recebiveis-btn:active { transform: translateY(-1px); }
+
+    /* Modal */
+    .modal {
+      display: none; position: fixed; z-index: 1000;
+      left: 0; top: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8);
+      justify-content: center; align-items: center;
+      padding: 20px;
+    }
+    .modal-content {
+      background: #1a1a1a;
+      border: 2px solid gold;
+      border-radius: 20px;
+      max-width: 800px; width: 100%;
+      padding: 25px;
+      color: #e0e0e0;
+      text-align: justify;
+      line-height: 1.6;
+      overflow-y: auto;
+      max-height: 80vh;
+      position: relative;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .modal.show .modal-content { opacity: 1; transform: scale(1); }
+    .modal h2 { color: #FFD700; margin-bottom: 15px; text-align: center; }
+    .modal h3 { color: #32CD32; margin: 20px 0 10px 0; }
+    .modal ul { margin: 10px 0 10px 20px; }
+    .modal li { margin-bottom: 8px; }
+    .close-btn { position: absolute; right: 20px; top: 15px; font-size: 1.4rem; color: #FFD700; cursor: pointer; }
+    .close-btn-footer {
+      display: block;
+      margin: 20px auto 0 auto;
+      background: linear-gradient(45deg, #DAA520, #FFD700, #B8860B);
+      border: none; padding: 10px 22px;
+      border-radius: 30px;
+      color: #1a1a1a; font-size: 0.9rem;
+      font-weight: 600; cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 6px 15px rgba(218,165,32,0.3);
+    }
+    .close-btn-footer:hover {
+      background: linear-gradient(45deg, #FFD700, #FFA500, #DAA520);
+      transform: translateY(-2px);
+    }
+
+    /* Seção Hero separada */
+    .hero-section {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        border: 2px solid;
+        border-image: linear-gradient(45deg, #DAA520, #FFD700, #B8860B, #DAA520) 1;
+        border-radius: 20px;
+        padding: 40px 30px;
+        text-align: center;
+        max-width: 600px;
+        width: 90%;
+        box-shadow: 
+            0 25px 50px rgba(0, 0, 0, 0.3),
+            0 0 0 1px rgba(218, 165, 32, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        margin-bottom: 30px;
+    }
+
+    .hero h2 {
+        background: linear-gradient(45deg, #DAA520, #FFD700, #FFA500);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 15px;
+    }
+
+    .hero p {
+        color: #e0e0e0;
+        font-size: 1.1rem;
+        margin-bottom: 30px;
+        line-height: 1.6;
+        opacity: 0.9;
+    }
+
+    .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .stat {
+        color: #FFD700;
+        text-align: center;
+    }
+
+    .stat h3 {
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+    }
+
+    .stat p {
+        font-size: 0.9rem;
+        color: #e0e0e0;
+        opacity: 0.8;
+        margin: 0;
+    }
+
+    .recebiveis-section {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(218, 165, 32, 0.3);
+    }
+
+    /* Seção da Carteira Web3 */
+    .wallet-section {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      border: 2px solid;
+      border-image: linear-gradient(45deg, #DAA520, #FFD700, #B8860B, #DAA520) 1;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 600px;
+      width: 90%;
+      margin-bottom: 30px;
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.3),
+        0 0 0 1px rgba(218, 165, 32, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .wallet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .wallet-title {
+      color: #e0e0e0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .lookup-btn {
+      background: linear-gradient(45deg, #8247e5, #6c2bd9);
+      border: none;
+      padding: 10px 20px;
+      border-radius: 25px;
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 5px 15px rgba(130, 71, 229, 0.3);
+    }
+
+    .lookup-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(130, 71, 229, 0.4);
+    }
+
+    .lookup-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .address-input-section {
+      background: rgba(130, 71, 229, 0.1);
+      border: 1px solid rgba(130, 71, 229, 0.3);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .address-input-section h4 {
+      color: #8247e5;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    .address-input {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      width: 100%;
+      margin-bottom: 10px;
+      font-family: 'Courier New', monospace;
+    }
+
+    .address-input::placeholder {
+      color: #a0a0a0;
+    }
+
+    .wallet-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .info-label {
+      color: #a0a0a0;
+      font-size: 0.9rem;
+      margin-bottom: 5px;
+    }
+
+    .info-value {
+      color: #e0e0e0;
+      font-size: 1rem;
+      font-weight: 500;
+      word-break: break-all;
+    }
+
+    .balance-section {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .balance-title {
+      color: #a0a0a0;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    .balance-value {
+      color: #e0e0e0;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .balance-message {
+      color: #a0a0a0;
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+
+    .tokens-section {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tokens-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .tokens-title {
+      color: #a0a0a0;
+      font-size: 0.9rem;
+    }
+
+    .refresh-tokens-btn {
+      background: #8247e5;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 20px;
+      color: #e0e0e0;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .refresh-tokens-btn:hover {
+      background: #6c2bd9;
+    }
+
+    .refresh-tokens-btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+
+    .tokens-message {
+      color: #a0a0a0;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .token-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .token-item:last-child {
+      border-bottom: none;
+    }
+
+    .token-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .token-symbol {
+      color: #e0e0e0;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .token-name {
+      color: #a0a0a0;
+      font-size: 0.8rem;
+      margin-top: 2px;
+    }
+
+    .token-balance {
+      text-align: right;
+    }
+
+    .token-amount {
+      color: #e0e0e0;
+      font-weight: 500;
+    }
+
+    .token-value {
+      color: #a0a0a0;
+      font-size: 0.8rem;
+      margin-top: 2px;
+    }
+
+    .loading {
+      color: #8247e5;
+      font-style: italic;
+    }
+
+    .error {
+      color: #ff6b6b;
+    }
+
+    .success {
+      color: #32CD32;
+    }
+
+    /* Footer */
+    .footer {
+      background: rgba(26,26,26,0.9);
+      color: #e0e0e0;
+      padding: 20px;
+      width: 100%;
+      text-align: center;
+      margin-top: auto;
+    }
+    .footer a { color: #FFD700; text-decoration: none; margin: 0 10px; }
+    .footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      .container, .hero-section, .wallet-section {
+        padding: 30px 20px; 
+        margin: 10px;
+      }
+      h1 { font-size: 1.8rem; }
+      .product-btn, .recebiveis-btn { width: 100%; font-size: 0.9rem; padding: 12px 25px; }
+      .hero h2 { font-size: 1.5rem; }
+      .hero-stats { grid-template-columns: 1fr; gap: 15px; }
+      .wallet-info { grid-template-columns: 1fr; }
+    }
+    @media (min-width: 601px) {
+      .buttons-grid { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 15px; }
+      .product-btn, .recebiveis-btn { width: 250px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Seção Principal -->
+  <div class="container">
+    <h1>Bem-vindo à sua Carteira Web3!</h1>
+    <p>Conecte-se ao futuro das finanças descentralizadas com segurança e elegância.</p>
+
+    <div class="buttons-section">
+      <div class="buttons-grid">
+        <!-- Botão MetaMask -->
+        <button class="metamask-btn" onclick="connectWallet()">
+          <i class="fa-brands fa-ethereum"></i> Conectar Carteira
+        </button>
+
+        <button class="product-btn" onclick="alert('Acesso aos Pools de Liquidez em desenvolvimento');">
+          Pools de Liquidez
+        </button>
+
+        <button class="product-btn" onclick="openModal('modalQuemSomos')">
+          Quem Somos
+        </button>
+
+        <button class="product-btn" onclick="alert('Produtos de Investimento em desenvolvimento');">
+          Investimentos DeFi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Seção Hero (Farming) -->
+  <div class="hero-section">
+      <div class="hero">
+          <h2>Maximize seus Rendimentos com Farming de Criptomoedas</h2>
+          <p>Faça stake dos seus tokens e ganhe recompensas passivas de forma segura e transparente</p>
+          <div class="hero-stats">
+              <div class="stat">
+                  <h3 id="totalValueLocked">$0</h3>
+                  <p>Total Value Locked</p>
+              </div>
+              <div class="stat">
+                  <h3 id="totalRewards">$0</h3>
+                  <p>Total Rewards Distributed</p>
+              </div>
+              <div class="stat">
+                  <h3 id="apy">0%</h3>
+                  <p>Current APY</p>
+              </div>
+          </div>
+
+          <!-- Seção de Antecipação de Recebíveis -->
+          <div class="recebiveis-section">
+              <button class="recebiveis-btn" onclick="openModal('modalRecebiveis')">
+                  <i class="fas fa-chart-line"></i> Antecipação de Recebíveis
+              </button>
+          </div>
+      </div>
+  </div>
+
+  <!-- Seção da Carteira Web3 -->
+  <div class="wallet-section">
+    <div class="wallet-header">
+      <h2 class="wallet-title">Carteira — Polygon Mainnet</h2>
+      <button class="lookup-btn" id="lookupBtn" onclick="lookupWallet()">
+        Consultar Carteira
+      </button>
+    </div>
+
+    <div class="address-input-section">
+      <h4>Consultar endereço de carteira na Polygon</h4>
+      <input type="text" class="address-input" id="walletAddress" placeholder="0x687c95f21a7C297A628Aae7A86b863FcD783d8dC">
+      <p style="color: #a0a0a0; font-size: 0.8rem; margin: 0;">
+        • Insira um endereço Ethereum válido para consultar na Polygon Mainnet<br>
+        • Lista automaticamente TODOS os tokens ERC-20 da carteira<br>
+        • Dados obtidos via API pública (sem necessidade de chave API)
+      </p>
+    </div>
+
+    <div class="wallet-info">
+      <div class="info-card">
+        <div class="info-label">Conta</div>
+        <div class="info-value" id="accountAddress">Insira um endereço acima</div>
+      </div>
+      <div class="info-card">
+        <div class="info-label">Rede</div>
+        <div class="info-value" id="networkName">Polygon Mainnet</div>
+      </div>
+    </div>
+
+    <div class="balance-section">
+      <div class="balance-title">Saldo Nativo (MATIC)</div>
+      <div class="balance-value" id="nativeBalance">Insira um endereço para consultar o saldo.</div>
+    </div>
+
+    <div class="tokens-section">
+      <div class="tokens-header">
+        <div class="tokens-title">Tokens ERC-20 (0)</div>
+        <button class="refresh-tokens-btn" id="refreshBtn" onclick="refreshTokens()" disabled>
+          <i class="fas fa-sync-alt"></i> Atualizar
+        </button>
+      </div>
+      <div class="tokens-message" id="tokensMessage">Insira um endereço para consultar todos os tokens.</div>
+      
+      <div id="tokensList"></div>
+    </div>
+  </div>
+
+  <!-- Modal Quem Somos -->
+  <div class="modal" id="modalQuemSomos">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal('modalQuemSomos')">&times;</span>
+      <h2>Quem Somos</h2>
+      <p>
+        A <strong>AVZ PropTech</strong> oferece soluções inovadoras para investimentos no universo descentralizado, proporcionando acesso seguro e transparente a uma vasta gama de oportunidades no setor de criptoativos. Nosso compromisso é com a educação financeira e a autonomia dos investidores, permitindo que eles aproveitem o potencial das tecnologias emergentes.
+      </p>
+      <p>
+        Entendemos a importância de respeitar as legislações locais, e por isso, todos os investimentos realizados por meio das nossas plataformas estão em conformidade com as leis de cada país. A AVZ PropTech assegura que cada transação e interação no ecossistema Web3 seja realizada dentro dos limites legais, garantindo a integridade e a segurança de todos os envolvidos.
+      </p>
+      <p>
+        Nosso compromisso vai além da inovação tecnológica: buscamos contribuir para o crescimento de um mercado financeiro mais inclusivo e globalmente regulamentado. Por isso, trabalhamos de perto com advogados e autoridades locais para garantir que nossas soluções respeitem as normas de cada jurisdição, mantendo um ambiente transparente e seguro para os investidores.
+      </p>
+      <button class="close-btn-footer" onclick="closeModal('modalQuemSomos')">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Modal Antecipação de Recebíveis -->
+  <div class="modal" id="modalRecebiveis">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal('modalRecebiveis')">&times;</span>
+      <h2>Investimento em Antecipação de Recebíveis - AVZ PropTech</h2>
+      
+      <h3>O que é Antecipação de Recebíveis?</h3>
+      <p>
+        A antecipação de recebíveis é uma operação financeira onde empresas recebem antecipadamente valores que têm a receber no futuro. Na AVZ PropTech, oferecemos aos investidores a oportunidade de participar dessas operações como uma forma de <strong>renda passiva</strong>, investindo nos recebíveis de nossos projetos imobiliários em construção.
+      </p>
+
+      <h3>Como Funciona para o Investidor?</h3>
+      <p>
+        Ao investir em antecipação de recebíveis da AVZ PropTech, você está adquirindo direitos sobre valores futuros de nossos empreendimentos imobiliários. Isso significa:
+      </p>
+      <ul>
+        <li><strong>Renda Passiva:</strong> Receba rendimentos mensais sem necessidade de gestão ativa</li>
+        <li><strong>Garantia Real:</strong> Investimentos lastreados em ativos imobiliários concretos</li>
+        <li><strong>Transparência:</strong> Acompanhe o progresso das obras através de nossa plataforma</li>
+        <li><strong>Rentabilidade Atrativa:</strong> Taxas competitivas com o mercado imobiliário</li>
+      </ul>
+
+      <h3>Base Legal e Regulamentação</h3>
+      <p>
+        As operações de antecipação de recebíveis no Brasil são regulamentadas pelo Banco Central através da <strong>Resolução BCB nº 264</strong> e suas alterações (Resolução BCB nº 349/2023). A legislação estabelece:
+      </p>
+      <ul>
+        <li>Registro obrigatório das operações em entidades registradoras autorizadas</li>
+        <li>Transparência nas taxas e condições contratuais</li>
+        <li>Proteção aos direitos dos investidores</li>
+        <li>Compliance com as normas do Sistema Financeiro Nacional</li>
+      </ul>
+
+      <h3>Vantagens para Projetos Imobiliários</h3>
+      <p>
+        Nossos projetos se beneficiam da antecipação de recebíveis para:
+      </p>
+      <ul>
+        <li>Acelerar o cronograma de construção</li>
+        <li>Reduzir custos financeiros</li>
+        <li>Manter fluxo de caixa saudável durante a obra</li>
+        <li>Oferecer melhores condições aos compradores finais</li>
+      </ul>
+
+      <h3>Segurança e Compliance</h3>
+      <p>
+        A AVZ PropTech opera em total conformidade com a legislação brasileira, incluindo:
+      </p>
+      <ul>
+        <li><strong>Lei nº 10.931/2004:</strong> Patrimônio de afetação e regime especial de tributação</li>
+        <li><strong>Resolução BCB nº 264:</strong> Registro e operação de recebíveis</li>
+        <li><strong>Instrução CVM nº 476/2009:</strong> Ofertas públicas com esforços restritos</li>
+        <li><strong>Lei Complementar nº 214/2025:</strong> Novo modelo de tributação</li>
+      </ul>
+
+      <h3>Como Investir</h3>
+      <p>
+        Para participar dos investimentos em antecipação de recebíveis da AVZ PropTech:
+      </p>
+      <ul>
+        <li>Cadastre-se em nossa plataforma</li>
+        <li>Complete o processo de suitability</li>
+        <li>Escolha o projeto de seu interesse</li>
+        <li>Defina o valor do investimento</li>
+        <li>Acompanhe seus rendimentos mensalmente</li>
+      </ul>
+
+      <p style="margin-top: 20px; font-style: italic; color: #FFD700;">
+        <strong>Importante:</strong> Este investimento apresenta riscos. Rentabilidade passada não garante resultados futuros. Leia atentamente o material informativo antes de investir.
+      </p>
+
+      <button class="close-btn-footer" onclick="closeModal('modalRecebiveis')">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>&copy; 2024 AVZ PropTech - Todos os direitos reservados.</p>
+    <p><a href="#">Documentação</a> | <a href="#">GitHub</a> | <a href="#">Discord</a></p>
+  </div>
+
+  <script>
+    let provider;
+    let currentAddress;
+    let tokens = [];
+    let isLookingUp = false;
+
+    // Configurar provider público para Polygon Mainnet
+    provider = new ethers.providers.JsonRpcProvider('https://polygon-rpc.com');
+
+    // Função para validar endereço Ethereum
+    function isValidAddress(address) {
+      return ethers.utils.isAddress(address);
+    }
+
+    // Função para consultar carteira
+    async function lookupWallet() {
+      if (isLookingUp) return;
+      
+      const addressInput = document.getElementById('walletAddress');
+      const address = addressInput.value.trim();
+      
+      if (!address) {
+        alert('Por favor, insira um endereço de carteira.');
+        return;
+      }
+      
+      if (!isValidAddress(address)) {
+        alert('Por favor, insira um endereço Ethereum válido.');
+        return;
+      }
+
+      isLookingUp = true;
+      const lookupBtn = document.getElementById('lookupBtn');
+      const originalText = lookupBtn.textContent;
+      lookupBtn.textContent = 'Consultando...';
+      lookupBtn.disabled = true;
+
+      try {
+        currentAddress = address;
+        
+        // Limpar tokens anteriores
+        tokens = [];
+        updateTokensList();
+        
+        // Atualizar interface básica
+        await updateWalletInfo();
+        
+        // Buscar todos os tokens
+        await fetchAllTokens();
+        
+        console.log("Consulta realizada com sucesso:", address);
+        
+      } catch (error) {
+        console.error("Erro ao consultar carteira:", error);
+        alert("Erro ao consultar carteira: " + error.message);
+        resetWalletInfo();
+      } finally {
+        isLookingUp = false;
+        lookupBtn.textContent = originalText;
+        lookupBtn.disabled = false;
+      }
+    }
+
+    // Função para atualizar informações básicas da carteira
+    async function updateWalletInfo() {
+      if (!provider || !currentAddress) {
+        resetWalletInfo();
+        return;
+      }
+
+      try {
+        // Atualizar endereço da conta
+        document.getElementById('accountAddress').textContent = 
+          currentAddress.slice(0, 6) + '...' + currentAddress.slice(-4);
+
+        // Rede é sempre Polygon Mainnet
+        document.getElementById('networkName').textContent = 'Polygon Mainnet';
+
+        // Mostrar loading no saldo
+        document.getElementById('nativeBalance').innerHTML = '<span class="loading">Carregando saldo MATIC...</span>';
+
+        // Atualizar saldo nativo (MATIC)
+        const balance = await provider.getBalance(currentAddress);
+        const balanceInMatic = ethers.utils.formatEther(balance);
+        document.getElementById('nativeBalance').textContent = 
+          `${parseFloat(balanceInMatic).toFixed(4)} MATIC`;
+
+        // Habilitar botão de refresh
+        document.getElementById('refreshBtn').disabled = false;
+
+        console.log("Informações básicas da carteira atualizadas");
+
+      } catch (error) {
+        console.error("Erro ao atualizar informações da carteira:", error);
+        document.getElementById('nativeBalance').innerHTML = '<span class="error">Erro ao carregar saldo</span>';
+      }
+    }
+
+    // Função para buscar todos os tokens ERC-20
+    async function fetchAllTokens() {
+      if (!currentAddress) return;
+
+      try {
+        // Mostrar loading
+        document.getElementById('tokensMessage').innerHTML = '<span class="loading">Buscando todos os tokens ERC-20...</span>';
+        
+        // Usar API pública do Polygon para buscar tokens
+        // Nota: Esta é uma implementação simplificada usando uma API pública
+        // Em produção, você pode usar APIs como Moralis, Alchemy, etc.
+        
+        const response = await fetch(`https://api.polygonscan.com/api?module=account&action=tokentx&address=${currentAddress}&startblock=0&endblock=999999999&sort=asc&apikey=YourApiKeyToken`);
+        
+        if (!response.ok) {
+          throw new Error('Erro ao buscar tokens da API');
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === '1' && data.result && data.result.length > 0) {
+          // Processar tokens únicos
+          const uniqueTokens = new Map();
+          
+          for (const tx of data.result) {
+            const tokenAddress = tx.contractAddress;
+            if (!uniqueTokens.has(tokenAddress)) {
+              uniqueTokens.set(tokenAddress, {
+                address: tokenAddress,
+                symbol: tx.tokenSymbol,
+                name: tx.tokenName,
+                decimals: parseInt(tx.tokenDecimal)
+              });
+            }
+          }
+          
+          // Buscar saldos atuais para cada token
+          const tokenPromises = Array.from(uniqueTokens.values()).map(async (tokenInfo) => {
+            try {
+              const balance = await getTokenBalance(tokenInfo.address, tokenInfo.decimals);
+              if (parseFloat(balance) > 0) {
+                return {
+                  ...tokenInfo,
+                  balance: balance
+                };
+              }
+              return null;
+            } catch (error) {
+              console.error(`Erro ao buscar saldo do token ${tokenInfo.symbol}:`, error);
+              return null;
+            }
+          });
+          
+          const tokenResults = await Promise.all(tokenPromises);
+          tokens = tokenResults.filter(token => token !== null);
+          
+        } else {
+          // Fallback: usar alguns tokens populares da Polygon
+          await fetchPopularPolygonTokens();
+        }
+        
+        updateTokensList();
+        
+      } catch (error) {
+        console.error("Erro ao buscar tokens:", error);
+        
+        // Fallback: tentar buscar tokens populares
+        try {
+          await fetchPopularPolygonTokens();
+          updateTokensList();
+        } catch (fallbackError) {
+          console.error("Erro no fallback:", fallbackError);
+          document.getElementById('tokensMessage').innerHTML = '<span class="error">Erro ao buscar tokens. Tente novamente.</span>';
+        }
+      }
+    }
+
+    // Função fallback para buscar tokens populares da Polygon
+    async function fetchPopularPolygonTokens() {
+      const popularTokens = [
+        { address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
+        { address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', symbol: 'USDT', name: 'Tether USD', decimals: 6 },
+        { address: '0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063', symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
+        { address: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', symbol: 'WBTC', name: 'Wrapped BTC', decimals: 8 },
+        { address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18 },
+        { address: '0x53E0bca35eC356BD5ddDFebbD1Fc0fD03FaBad39', symbol: 'LINK', name: 'ChainLink Token', decimals: 18 },
+        { address: '0xD6DF932A45C0f255f85145f286eA0b292B21C90B', symbol: 'AAVE', name: 'Aave Token', decimals: 18 }
+      ];
+
+      const tokenPromises = popularTokens.map(async (tokenInfo) => {
+        try {
+          const balance = await getTokenBalance(tokenInfo.address, tokenInfo.decimals);
+          if (parseFloat(balance) > 0) {
+            return {
+              ...tokenInfo,
+              balance: balance
+            };
+          }
+          return null;
+        } catch (error) {
+          console.error(`Erro ao buscar saldo do token ${tokenInfo.symbol}:`, error);
+          return null;
+        }
+      });
+
+      const tokenResults = await Promise.all(tokenPromises);
+      tokens = tokenResults.filter(token => token !== null);
+    }
+
+    // Função para buscar saldo de um token específico
+    async function getTokenBalance(tokenAddress, decimals) {
+      try {
+        const erc20Abi = [
+          "function balanceOf(address) view returns (uint256)"
+        ];
+
+        const tokenContract = new ethers.Contract(tokenAddress, erc20Abi, provider);
+        const balance = await tokenContract.balanceOf(currentAddress);
+        return ethers.utils.formatUnits(balance, decimals);
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    // Função para atualizar tokens
+    async function refreshTokens() {
+      if (!currentAddress) return;
+      
+      const refreshBtn = document.getElementById('refreshBtn');
+      const originalText = refreshBtn.innerHTML;
+      refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
+      refreshBtn.disabled = true;
+
+      try {
+        await fetchAllTokens();
+      } catch (error) {
+        console.error("Erro ao atualizar tokens:", error);
+      } finally {
+        refreshBtn.innerHTML = originalText;
+        refreshBtn.disabled = false;
+      }
+    }
+
+    // Função para resetar informações da carteira
+    function resetWalletInfo() {
+      document.getElementById('accountAddress').textContent = 'Insira um endereço acima';
+      document.getElementById('networkName').textContent = 'Polygon Mainnet';
+      document.getElementById('nativeBalance').textContent = 'Insira um endereço para consultar o saldo.';
+      document.getElementById('tokensMessage').textContent = 'Insira um endereço para consultar todos os tokens.';
+      document.getElementById('tokensList').innerHTML = '';
+      
+      // Atualizar contador de tokens
+      const tokensTitle = document.querySelector('.tokens-title');
+      tokensTitle.textContent = 'Tokens ERC-20 (0)';
+      
+      // Desabilitar botão de refresh
+      document.getElementById('refreshBtn').disabled = true;
+      
+      tokens = [];
+      currentAddress = null;
+    }
+
+    // Função para conectar carteira (mantida para compatibilidade)
+    async function connectWallet() {
+      alert('Esta versão permite consultar qualquer endereço de carteira na Polygon Mainnet sem conectar o MetaMask. Use o campo de entrada acima para inserir um endereço.');
+    }
+
+    // Função para atualizar lista de tokens
+    function updateTokensList() {
+      const tokensList = document.getElementById('tokensList');
+      const tokensTitle = document.querySelector('.tokens-title');
+      const tokensMessage = document.getElementById('tokensMessage');
+      
+      tokensTitle.textContent = `Tokens ERC-20 (${tokens.length})`;
+      
+      if (tokens.length === 0) {
+        tokensList.innerHTML = '';
+        tokensMessage.innerHTML = currentAddress ? 
+          '<span class="success">Nenhum token com saldo encontrado nesta carteira.</span>' : 
+          'Insira um endereço para consultar todos os tokens.';
+        return;
+      }
+
+      tokensMessage.innerHTML = '<span class="success">Tokens encontrados com saldo positivo:</span>';
+      
+      tokensList.innerHTML = tokens.map(token => `
+        <div class="token-item">
+          <div class="token-info">
+            <div class="token-symbol">${token.symbol}</div>
+            <div class="token-name">${token.name}</div>
+          </div>
+          <div class="token-balance">
+            <div class="token-amount">${parseFloat(token.balance).toFixed(6)}</div>
+            <div class="token-value">${token.symbol}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Função para abrir modal
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      modal.style.display = "flex";
+      setTimeout(() => modal.classList.add("show"), 10);
+    }
+
+    // Função para fechar modal
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.remove("show");
+      setTimeout(() => modal.style.display = "none", 300);
+    }
+
+    // Event listener para clique fora do modal
+    window.onclick = function(event) {
+      const modalQuemSomos = document.getElementById('modalQuemSomos');
+      const modalRecebiveis = document.getElementById('modalRecebiveis');
+      if (event.target === modalQuemSomos) { 
+        closeModal('modalQuemSomos'); 
+      }
+      if (event.target === modalRecebiveis) { 
+        closeModal('modalRecebiveis'); 
+      }
+    }
+
+    // Event listener para Enter no campo de endereço
+    document.getElementById('walletAddress').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        lookupWallet();
+      }
+    });
+
+    // Inicialização quando a página carrega
+    window.addEventListener('load', () => {
+      console.log("Página carregada, pronta para consultas de carteira na Polygon Mainnet");
+      
+      // Preencher endereço de exemplo se fornecido
+      const exampleAddress = '0x687c95f21a7C297A628Aae7A86b863FcD783d8dC';
+      document.getElementById('walletAddress').placeholder = exampleAddress;
+    });
+  </script>
+</body>
+</html>
+
